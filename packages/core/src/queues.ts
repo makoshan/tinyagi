@@ -67,6 +67,10 @@ export function initQueueDb(): void {
     if (!respCols.some(c => c.name === 'metadata')) {
         db.exec('ALTER TABLE responses ADD COLUMN metadata TEXT');
     }
+    const msgCols2 = db.prepare("PRAGMA table_info(messages)").all() as { name: string }[];
+    if (!msgCols2.some(c => c.name === 'depth')) {
+        db.exec('ALTER TABLE messages ADD COLUMN depth INTEGER NOT NULL DEFAULT 0');
+    }
     const msgCols = db.prepare("PRAGMA table_info(messages)").all() as { name: string }[];
     if (msgCols.some(c => c.name === 'files')) {
         db.exec('ALTER TABLE messages DROP COLUMN files');
@@ -87,10 +91,10 @@ export function enqueueMessage(data: MessageJobData): number | null {
     const now = Date.now();
     try {
         const r = getDb().prepare(
-            `INSERT INTO messages (message_id,channel,sender,sender_id,message,agent,from_agent,status,created_at,updated_at)
-             VALUES (?,?,?,?,?,?,?,'pending',?,?)`
+            `INSERT INTO messages (message_id,channel,sender,sender_id,message,agent,from_agent,depth,status,created_at,updated_at)
+             VALUES (?,?,?,?,?,?,?,?,'pending',?,?)`
         ).run(data.messageId, data.channel, data.sender, data.senderId ?? null, data.message,
-            data.agent ?? null, data.fromAgent ?? null, now, now);
+            data.agent ?? null, data.fromAgent ?? null, data.depth ?? 0, now, now);
         queueEvents.emit('message:enqueued', { id: r.lastInsertRowid, agent: data.agent });
         return r.lastInsertRowid as number;
     } catch (err: any) {

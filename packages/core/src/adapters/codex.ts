@@ -3,11 +3,35 @@ import { runCommand, runCommandStreaming } from '../invoke';
 import { log } from '../logging';
 
 /**
+ * Strip tool-call artifacts that gpt-5.x sometimes leaks into agent_message text.
+ * Removes lines like: `assistant to=functions.exec_command commentary ...json`
+ * and `{"cmd":"...","workdir":"..."}` blocks, plus prompt-injection noise.
+ */
+function cleanResponseText(text: string): string {
+    return text
+        .split('\n')
+        .filter(line => {
+            const trimmed = line.trim();
+            // Remove tool-call preamble lines
+            if (/^(assistant|analysis)\s+to=functions\./i.test(trimmed)) return false;
+            // Remove raw JSON tool-call payloads
+            if (/^\{"cmd":/i.test(trimmed)) return false;
+            // Remove prompt-injection noise
+            if (/^(Ignore\.|done\.|end\.|It won't end)/i.test(trimmed)) return false;
+            return true;
+        })
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+/**
  * Extract displayable text from a Codex JSONL event.
  */
 function extractEventText(json: any): string | null {
     if (json.type === 'item.completed' && json.item?.type === 'agent_message') {
-        return json.item.text || null;
+        const raw = json.item.text || null;
+        return raw ? cleanResponseText(raw) : null;
     }
     return null;
 }
@@ -52,7 +76,7 @@ export const codexAdapter: AgentAdapter = {
                 try {
                     const json = JSON.parse(line);
                     if (json.type === 'item.completed' && json.item?.type === 'agent_message') {
-                        response = json.item.text;
+                        response = cleanResponseText(json.item.text || '');
                     }
                 } catch (e) {
                     // Ignore non-JSON lines

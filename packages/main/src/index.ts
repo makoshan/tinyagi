@@ -49,6 +49,7 @@ async function processMessage(dbMsg: any): Promise<void> {
         messageId: dbMsg.message_id,
         agent: dbMsg.agent ?? undefined,
         fromAgent: dbMsg.from_agent ?? undefined,
+        depth: dbMsg.depth ?? 0,
     };
 
     const { channel, sender, message: rawMessage, messageId, agent: preRoutedAgent } = data;
@@ -130,10 +131,13 @@ async function processMessage(dbMsg: any): Promise<void> {
     // ── Response routing ────────────────────────────────────────────────────
     // Team orchestration — handles team-routed, internal, and direct messages
     // to agents that belong to a team.
+    // Skip team routing for heartbeat messages to prevent confirmation loops.
 
-    await handleTeamResponse({
-        agentId, response, isTeamRouted, data, agents, teams,
-    });
+    if (channel !== 'heartbeat') {
+        await handleTeamResponse({
+            agentId, response, isTeamRouted, data, agents, teams,
+        });
+    }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

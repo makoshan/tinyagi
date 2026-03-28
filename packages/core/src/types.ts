@@ -1,6 +1,6 @@
 export interface CustomProvider {
     name: string;
-    harness: 'claude' | 'codex';  // which CLI to invoke
+    harness: 'claude' | 'codex' | 'openai-http';  // which adapter to use
     base_url: string;
     api_key: string;
     model?: string;               // model name to pass to the CLI
@@ -119,6 +119,7 @@ export interface MessageJobData {
     messageId: string;
     agent?: string;
     fromAgent?: string;
+    depth?: number;  // internal routing depth — prevents infinite agent loops
 }
 
 export interface ResponseJobData {
