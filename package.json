@@ -31,6 +31,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@mariozechner/pi-ai": "^0.63.1",
     "croner": "^10.0.1"
   },
   "puppeteer": {

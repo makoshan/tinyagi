@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { subscribeToEvents, type EventData } from "@/lib/api";
+import { subscribeToEvents, getProcessingMessages, type EventData } from "@/lib/api";
 import { AGENT_SESSION_RELEASE_MS, extractTargets, type AgentWorkSession, type LiveBubble } from "./types";
 
 export function useOfficeSse() {
@@ -170,6 +170,64 @@ export function useOfficeSse() {
     );
 
     return unsubscribe;
+  }, []);
+
+  // ── Hydrate work sessions from processing queue ────────────────────────
+  // Catches agents that started before the page loaded or whose SSE events
+  // were missed (reconnect, tab backgrounded, etc.).
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrate = async () => {
+      try {
+        const processing = await getProcessingMessages();
+        if (cancelled || processing.length === 0) return;
+
+        processing.forEach((msg) => {
+          if (!msg.agent || !msg.processAlive) return;
+          const messageId = msg.messageId;
+
+          // Ensure a root session exists for this message
+          if (!rootSessionsRef.current.has(messageId)) {
+            rootSessionsRef.current.set(messageId, {
+              startedAt: msg.startedAt,
+              agentIds: new Set<string>(),
+            });
+            openRootOrderRef.current = [
+              ...openRootOrderRef.current.filter((id) => id !== messageId),
+              messageId,
+            ];
+          }
+          rootSessionsRef.current.get(messageId)!.agentIds.add(msg.agent);
+        });
+
+        setAgentWorkSessions((current) => {
+          const next = { ...current };
+          let changed = false;
+          processing.forEach((msg) => {
+            if (!msg.agent || !msg.processAlive) return;
+            const existing = next[msg.agent];
+            if (existing && !existing.completedAt) return; // already active
+            next[msg.agent] = {
+              rootMessageId: msg.messageId,
+              startedAt: msg.startedAt,
+            };
+            changed = true;
+          });
+          return changed ? next : current;
+        });
+      } catch {
+        // API unreachable — ignore, SSE events will handle it
+      }
+    };
+
+    hydrate();
+    const interval = window.setInterval(hydrate, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
   }, []);
 
   // ── Bubble expiry ──────────────────────────────────────────────────────

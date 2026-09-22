@@ -1,0 +1,25 @@
+{
+  "name": "@tinyagi/openclaw-bridge",
+  "version": "0.0.1",
+  "description": "TinyAGI bridge to OpenClaw Gateway and Nodes",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "openclaw": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "test": "jest",
+    "smoke": "npm run build && node dist/smoke.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "peerDependencies": {
+    "@tinyagi/core": "^0.0.10"
+  }
+}

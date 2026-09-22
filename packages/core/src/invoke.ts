@@ -225,7 +225,11 @@ export async function invokeAgent(
             throw new Error(`Custom provider '${customId}' not found in settings.custom_providers`);
         }
         // Map harness back to built-in provider for adapter selection
-        provider = customProvider.harness === 'codex' ? 'openai' : 'anthropic';
+        if (customProvider.harness === 'openai-http') {
+            provider = 'openai-http';
+        } else {
+            provider = customProvider.harness === 'codex' ? 'openai' : 'anthropic';
+        }
 
         // Build env overrides based on harness
         if (customProvider.harness === 'claude') {
@@ -233,6 +237,9 @@ export async function invokeAgent(
             envOverrides.ANTHROPIC_AUTH_TOKEN = customProvider.api_key;
             envOverrides.ANTHROPIC_API_KEY = '';
         } else if (customProvider.harness === 'codex') {
+            envOverrides.OPENAI_API_KEY = customProvider.api_key;
+            envOverrides.OPENAI_BASE_URL = customProvider.base_url;
+        } else if (customProvider.harness === 'openai-http') {
             envOverrides.OPENAI_API_KEY = customProvider.api_key;
             envOverrides.OPENAI_BASE_URL = customProvider.base_url;
         }
